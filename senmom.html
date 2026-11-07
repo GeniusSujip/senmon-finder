@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Senmon Gakkou Finder</title>
+<style>
+  :root {
+    --ink: #1d2433; --muted: #5d6678; --line: #d9dde5; --bg: #0f2a5c;
+    --card: #fff; --accent: #2b5cd9;
+    --high: #1f7a4d; --mid: #a86a00; --hard: #b3382c;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: system-ui, "Hiragino Sans", "Noto Sans JP", sans-serif;
+    background: var(--bg); color: var(--ink); margin: 0; line-height: 1.5;
+  }
+  main { max-width: 760px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
+  h1 { margin: 0 0 0.25rem; color: #fff; }
+  .sub { color: #c9d6f2; margin: 0 0 1.25rem; }
+  .filters {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 0.75rem; background: var(--card); border: 1px solid var(--line);
+    border-radius: 10px; padding: 1rem;
+  }
+  label { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 0.2rem; }
+  select, input[type="text"] {
+    width: 100%; font-size: 1rem; padding: 0.45rem;
+    border: 1px solid var(--line); border-radius: 6px; background: #fff;
+  }
+  .check { display: flex; align-items: center; gap: 0.4rem; margin-top: 1.4rem; }
+  .check label { margin: 0; color: var(--ink); }
+  .count { margin: 1rem 0 0.25rem; color: #c9d6f2; }
+  .card {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 10px; padding: 1rem; margin-top: 0.75rem;
+  }
+  .top { display: flex; justify-content: space-between; gap: 0.5rem; align-items: flex-start; }
+  .card h2 { font-size: 1.1rem; margin: 0; }
+  .meta { color: var(--muted); font-size: 0.9rem; margin: 0.25rem 0 0.5rem; }
+  .badge {
+    display: inline-block; font-size: 0.8rem; font-weight: 600; color: #fff;
+    padding: 0.15rem 0.6rem; border-radius: 99px; white-space: nowrap;
+  }
+  .high { background: var(--high); }
+  .medium { background: var(--mid); }
+  .hard { background: var(--hard); }
+  .note { margin: 0.5rem 0; font-size: 0.95rem; }
+  .actions { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; font-size: 0.9rem; }
+  a { color: var(--accent); }
+  button {
+    font-size: 0.9rem; padding: 0.35rem 0.8rem; border-radius: 6px; cursor: pointer;
+    border: 1px solid var(--accent); background: #fff; color: var(--accent);
+  }
+  button.saved { background: var(--accent); color: #fff; }
+  .empty { padding: 1.5rem 0; color: #c9d6f2; }
+  .warn { font-size: 0.85rem; color: #c9d6f2; margin-top: 1.5rem; }
+  #google_translate_element { margin-bottom: 1rem; }
+  :focus-visible { outline: 3px solid #8fb0ff; outline-offset: 2px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Senmon Gakkou Finder</h1>
+  <p class="sub">Find vocational schools by field, city, and your Japanese level.</p>
+
+  <div id="google_translate_element"></div>
+
+  <section class="filters" aria-label="Filters">
+    <div>
+      <label for="search">Search name</label>
+      <input type="text" id="search" placeholder="e.g. IT">
+    </div>
+    <div>
+      <label for="field">Field</label>
+      <select id="field"></select>
+    </div>
+    <div>
+      <label for="city">City</label>
+      <select id="city"></select>
+    </div>
+    <div>
+      <label for="level">My Japanese level</label>
+      <select id="level">
+        <option value="any">Any / not sure</option>
+        <option value="5">N5</option>
+        <option value="4">N4</option>
+        <option value="3">N3</option>
+        <option value="2">N2</option>
+        <option value="1">N1</option>
+      </select>
+    </div>
+    <div>
+      <label for="outlook">Job outlook</label>
+      <select id="outlook">
+        <option value="all">All</option>
+        <option value="high">High demand</option>
+        <option value="medium">Medium</option>
+        <option value="hard">Competitive</option>
+      </select>
+    </div>
+    <div class="check">
+      <input type="checkbox" id="savedOnly">
+      <label for="savedOnly">Saved only</label>
+    </div>
+  </section>
+
+  <p class="count" id="count" aria-live="polite"></p>
+  <div id="results"></div>
+
+  <p class="warn">
+    Always check tuition, entry rules, Japanese level, and employment numbers for
+    international students directly with each school. Employment rates shown are
+    usually for all students, not only international students. Phone numbers marked
+    "Japan only" are toll-free and may not work from abroad.
+  </p>
+</main>
+
+<script>
+  // ---------- 1. DATA ----------
+  // required: Japanese level needed. 5=N5 ... 1=N1, 6=none, null=ask the school
+  // outlook: "high", "medium", or "hard"
+  const schools = [
+    { id: 101, name: "Aso Technical Automotive College (International Automotive Maintenance)", field: "Automotive", city: "Fukuoka",
+      years: 3, required: null, outlook: "high", phone: "+81-92-433-0633",
+      note: "3-year course for international students to become national 2nd-class mechanics. Published data: 28 graduates, 28 job seekers, 28 employed. Confirm Japanese level, tuition and visa with the school.",
+       url: "https://asojuku.ac.jp/acet/", checked: "2026-11-07" },
+    { id: 102, name: "Nishitetsu Automobile Maintenance College (International Course)", field: "Automotive", city: "Onojo",
+      years: 3, required: null, outlook: "high", phone: "",
+      note: "3-year international student mechanic course, 35 places. Confirm details with the school.",
+      url: "https://www.nishitetsu-seibi.ac.jp/", checked: "2026-11-07" },
+    { id: 103, name: "Daiichi Automobile College (International Course)", field: "Automotive", city: "Fukuoka",
+      years: 2, required: null, outlook: "high", phone: "",
+      note: "Listed with an international student automotive course (2024 data). Confirm details with the school.",
+      url: "https://www.seigaku.ac.jp/", checked: "2026-11-07" },
+    { id: 104, name: "Fukuoka Kaigo Fukushi College", field: "Care", city: "Fukuoka",
+      years: 2, required: 2, outlook: "high", phone: "+81-92-645-0800",
+      note: "Certified care worker training school (2-year course, 40 places). Ask whether it accepts international students.",
+      url: "https://keiaien.org/fukkai", checked: "2026-11-07" },
+    { id: 105, name: "Aso Medical Welfare & Childcare College (Care Welfare)", field: "Care", city: "Fukuoka",
+      years: 2, required: null, outlook: "high", phone: "+81-92-415-2294",
+      note: "Certified care worker training school (2-year course, 50 places). Ask whether it accepts international students.",
+      url: "https://asojuku.ac.jp/amfc", checked: "2026-11-07" },
+    { id: 106, name: "Hiraoka Kaigo Fukushi College", field: "Care", city: "Ogori",
+      years: 2, required: 2, outlook: "high", phone: "+81-942-73-5666",
+      note: "Certified care worker training school (2-year course, 40 places). Ask whether it accepts international students.",
+      url: "https://www.hiraoka.ac.jp", checked: "2026-11-07" },
+    { id: 107, name: "Fukuoka Information IT Creator College", field: "IT", city: "Fukuoka",
+      years: 2, required: 2, outlook: "high", phone: "",
+      note: "IT vocational school. International student policy not confirmed, so ask the school.",
+      url: "#", checked: "2026-11-07" },
+    { id: 108, name: "Fukuoka Bridal & Hotel Tourism College", field: "Hospitality", city: "Fukuoka",
+      years: 2, required: null, outlook: "high", phone: "",
+      note: "99.3% job placement (138 of 139 job seekers, March 2025 graduates), all students, not international only. Ask about international student results, visa and Japanese level.",
+      url: "#", checked: "2026-11-07" },
+    { id: 109, name: "Fukuoka Aso Foreign Language, Tourism & Bridal College (Hotel & Resort)", field: "Hospitality", city: "Fukuoka",
+      years: 2, required: null, outlook: "high", phone: "",
+      note: "2025 hotel business exam: Level 1 pass rate 93.3% (all 12 international students passed), Level 2 100%. Employment rate not found. Ask the school for it.",
+      url: "#", checked: "2026-11-07" },
+    { id: 110, name: "Fukuoka College of Business (IT & Business)", field: "IT", city: "Fukuoka",
+      years: 2, required: null, outlook: "high", phone: "",
+      note: "98.8% job placement (87 of 88 job seekers, March 2025 graduates), all students, not IT or international only. Ask about IT course results, Japanese level and visa.",
+      url: "#", checked: "2026-11-07" },
+    { id: 111, name: "Fukuoka Medical Secretary, Welfare & IT College (Web Design & IT Programming)", field: "IT", city: "Fukuoka",
+      years: 2, required: 2, outlook: "high", phone: "0120-282-633 (Japan only)",
+      note: "100% job placement (173 of 173 job seekers, March 2025), whole school and mostly medical/welfare jobs. Ask for IT course results and international student support.",
+      url: "https://www.sanko.ac.jp", checked: "2026-11-07" },
+    { id: 112, name: "Aso Information Business College (System Engineer course)", field: "IT", city: "Fukuoka",
+      years: 3, required: 2, outlook: "high", phone: "+81-92-415-2291",
+      note: "FY2023 graduates: 89 of 89 job seekers employed (98 graduates), mostly information services. Few international students listed, so ask about support, Japanese level and visa.",
+      url: "http://asojuku.ac.jp/abcc", checked: "2026-11-07" },
+    { id: 113, name: "Aso Information Business College (International Business course)", field: "Business", city: "Fukuoka",
+      years: 2, required: null, outlook: "medium", phone: "+81-92-415-2291",
+      note: "Built for international students: business Japanese and communication skills for Japanese companies. Employment numbers not found, so ask the school.",
+      url: "http://asojuku.ac.jp/abcc", checked: "2026-11-07" },
+    { id: 114, name: "Nishitetsu International Business College (IT Business course)", field: "IT", city: "Fukuoka",
+      years: 2, required: 2, outlook: "medium", phone: "0120-417-593 (Japan only)",
+      note: "IT Business course, 30 places, trains broad IT skills for company digital transformation. Ask about international student support, Japanese level, employment numbers and visa.",
+      url: "#", checked: "2026-11-07" },
+    { id: 115, name: "Nishitetsu International Business College (Hotel & Bridal course)", field: "Hospitality", city: "Fukuoka",
+      years: 2, required: null, outlook: "high", phone: "0120-417-593 (Japan only)",
+      note: "School-wide job placement 98.2% (112 of 114 job seekers, March 2025), not hotel-only or international-only. First-year fee about 1.08 million yen. Ask about international student support, Japanese level and visa.",
+      url: "#", checked: "2026-11-07" }
+  ];
+
+  const outlookLabel = { high: "High demand", medium: "Medium", hard: "Competitive" };
+
+  // ---------- 2. ELEMENTS ----------
+  const $ = id => document.getElementById(id);
+  const searchEl = $("search"), fieldEl = $("field"), cityEl = $("city");
+  const levelEl = $("level"), outlookEl = $("outlook"), savedOnlyEl = $("savedOnly");
+  const resultsEl = $("results"), countEl = $("count");
+
+  // ---------- 3. SAVED SCHOOLS (kept in this browser) ----------
+  function loadSaved() {
+    try { return JSON.parse(localStorage.getItem("savedSchools")) || []; }
+    catch (e) { return []; }
+  }
+  let saved = loadSaved();
+  function toggleSaved(id) {
+    saved = saved.includes(id) ? saved.filter(x => x !== id) : [...saved, id];
+    try { localStorage.setItem("savedSchools", JSON.stringify(saved)); } catch (e) {}
+    render();
+  }
+
+  // ---------- 4. FILL DROPDOWNS FROM DATA ----------
+  function fillSelect(el, allLabel, values) {
+    el.innerHTML = `<option value="all">${allLabel}</option>` +
+      values.map(v => `<option value="${v}">${v}</option>`).join("");
+  }
+  const unique = key => [...new Set(schools.map(s => s[key]))].sort();
+  fillSelect(fieldEl, "All fields", unique("field"));
+  fillSelect(cityEl, "All cities", unique("city"));
+
+  // ---------- 5. FILTER + SHOW ----------
+  function render() {
+    const text = searchEl.value.trim().toLowerCase();
+    const myLevel = levelEl.value;
+
+    const list = schools.filter(s =>
+      (text === "" || s.name.toLowerCase().includes(text) || s.field.toLowerCase().includes(text)) &&
+      (fieldEl.value === "all" || s.field === fieldEl.value) &&
+      (cityEl.value === "all" || s.city === cityEl.value) &&
+      (outlookEl.value === "all" || s.outlook === outlookEl.value) &&
+           (myLevel === "any" || (s.required === null ? 3 : s.required) >= Number(myLevel)) &&
+      (!savedOnlyEl.checked || saved.includes(s.id))
+    );
+
+    countEl.textContent = list.length + (list.length === 1 ? " school found" : " schools found");
+
+    if (list.length === 0) {
+      resultsEl.innerHTML = '<p class="empty">No schools match. Try clearing a filter.</p>';
+      return;
+    }
+
+    resultsEl.innerHTML = list.map(s => {
+      const isSaved = saved.includes(s.id);
+            const req = s.required === null ? "Japanese: often N3 or higher (confirm with school)"
+                : s.required === 6 ? "No Japanese required"
+                : "Japanese: N" + s.required + " or higher";
+      return `
+        <article class="card">
+          <div class="top">
+            <h2 class="notranslate">${s.name}</h2>
+            <span class="badge ${s.outlook}">${outlookLabel[s.outlook]}</span>
+          </div>
+          <p class="meta">${s.field} | ${s.city} | ${s.years} years | ${req}</p>
+          <p class="note">${s.note}</p>
+          <div class="actions">
+            <button class="${isSaved ? "saved" : ""}" onclick="toggleSaved(${s.id})">
+              ${isSaved ? "Saved" : "Save"}
+            </button>
+            <a href="${s.url}" target="_blank" rel="noopener">Official website</a>
+            ${s.phone ? `<span>Tel: ${s.phone}</span>` : ""}
+            <span>Last checked: ${s.checked}</span>
+          </div>
+        </article>`;
+    }).join("");
+  }
+
+  [searchEl, fieldEl, cityEl, levelEl, outlookEl, savedOnlyEl].forEach(el => {
+    el.addEventListener(el === searchEl ? "input" : "change", render);
+  });
+  render();
+</script>
+</body>
+</html>
